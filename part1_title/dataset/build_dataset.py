@@ -31,11 +31,49 @@ class FakeDataset(Dataset):
             data = torch.load(os.path.join(saved_data_path, f'{split}.pt'))
         else:
             _logger.info('load raw data')
-                
+
             data = {}
+            bad_files = 0
+
             for filename in data_info:
-                f = json.load(open(filename,'r'))
+                # 1) 확장자 체크: json 아닌 건 스킵
+                if not filename.lower().endswith(".json"):
+                    bad_files += 1
+                    continue
+
+                # 2) 내용이 ZIP(PK)면 스킵 (확장자가 json이어도 PK면 바이너리)
+                try:
+                    with open(filename, "rb") as fb:
+                        if fb.read(2) == b"PK":
+                            bad_files += 1
+                            continue
+                except Exception:
+                    bad_files += 1
+                    continue
+
+                # 3) json load: utf-8 기본, 실패하면 cp949로 재시도
+                try:
+                    with open(filename, "r", encoding="utf-8") as fp:
+                        f = json.load(fp)
+                except UnicodeDecodeError:
+                    # 인코딩 깨지는 파일 구제 (필요없으면 continue로 버려도 됨)
+                    try:
+                        with open(filename, "r", encoding="cp949", errors="replace") as fp:
+                            f = json.load(fp)
+                    except Exception:
+                        bad_files += 1
+                        continue
+                except Exception:
+                    bad_files += 1
+                    continue
+
                 data[filename] = f
+
+            # data_info도 실제로 로드된 파일만 남기기 (중요!)
+            data_info = list(data.keys())
+
+            _logger.info(f"Loaded {len(data_info)} files, skipped {bad_files} files")
+
 
         setattr(self, 'data_info', data_info)
         setattr(self, 'data', data)
