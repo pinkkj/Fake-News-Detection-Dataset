@@ -7,43 +7,53 @@ class BERTDataset(FakeDataset):
         super(BERTDataset, self).__init__(tokenizer=tokenizer)
 
         self.max_word_len = max_word_len
-        self.vocab = self.tokenizer.vocab
 
         # special token index
         self.pad_idx = self.vocab[self.vocab.padding_token]
         self.cls_idx = self.vocab[self.vocab.cls_token]
 
     def transform(self, title: str, text: list) -> dict:
-        sent_list = [title] + text
-        src = [self.tokenizer(d_i) for d_i in sent_list]
-
-        src = self.length_processing(src)
-
+        # text가 문장 리스트면 합치기
+        if isinstance(text, (list, tuple)):
+            body = " ".join([t for t in text if isinstance(t, str)])
+        else:
+            body = str(text)
+    
+        # 제목 + 본문 합치기
+        src = f"{title} {body}".strip()
+    
         input_ids, token_type_ids, attention_mask = self.tokenize(src)
+    
+        return {
+            "input_ids": input_ids,
+            "attention_mask": attention_mask,
+            "token_type_ids": token_type_ids,
+        }
 
-        doc = {}
-        doc['input_ids'] = input_ids
-        doc['attention_mask'] = attention_mask
-        doc['token_type_ids'] = token_type_ids
-
-        return doc
 
 
-    def tokenize(self, src: list) -> List[torch.Tensor]:
-        src_subtokens = [[self.vocab.cls_token] + src[0] + [self.vocab.sep_token]] + [sum(src[1:],[]) + [self.vocab.sep_token]]
-        input_ids = [self.tokenizer.convert_tokens_to_ids(s) for s in src_subtokens]
-        
-        token_type_ids = self.get_token_type_ids(input_ids)
-        token_type_ids = sum(token_type_ids,[])
-        
-        input_ids = [x for sublist in input_ids for x in sublist]
-        
-        input_ids, token_type_ids, attention_mask = self.padding_bert(
-            input_ids       = input_ids,
-            token_type_ids  = token_type_ids
+    def tokenize(self, src: str) -> List[torch.Tensor]:
+        # HuggingFace tokenizer로 바로 인코딩
+        encoded = self.tokenizer(
+            src,
+            truncation=True,
+            padding="max_length",
+            max_length=self.max_word_len,
+            return_tensors=None
         )
-        
+    
+        input_ids = torch.tensor(encoded["input_ids"], dtype=torch.long)
+        attention_mask = torch.tensor(encoded["attention_mask"], dtype=torch.long)
+    
+        # token_type_ids 없는 모델도 있으니 안전 처리
+        token_type_ids = torch.tensor(
+            encoded.get("token_type_ids", [0] * len(encoded["input_ids"])),
+            dtype=torch.long
+        )
+    
         return input_ids, token_type_ids, attention_mask
+
+
 
     def length_processing(self, src: list) -> list:
         max_word_len = self.max_word_len - 3 # 3 is the number of special tokens. ex) [CLS], [SEP], [SEP]
