@@ -5,7 +5,7 @@ MODE:
     save_list:
         - train
         - validation
-        - test
+        #- test
 
 DATASET:
     name: BERT
