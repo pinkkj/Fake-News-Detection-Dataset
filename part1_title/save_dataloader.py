@@ -4,6 +4,7 @@ import torch
 import os 
 import yaml
 import argparse 
+import traceback
 
 from dataset import create_tokenizer, create_dataset, create_dataloader
 
