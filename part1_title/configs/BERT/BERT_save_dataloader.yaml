@@ -22,5 +22,5 @@ TRAIN:
     num_workers: 4
 
 RESULT:
-    savedir: ../data/Part1
+    savedir: /workspace/Fake-News-Detection-Dataset/data/Part1
     dataname: 'BERT_w512'
