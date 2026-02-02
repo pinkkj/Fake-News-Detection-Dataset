@@ -9,7 +9,7 @@ MODE:
 
 DATASET:
     name: BERT
-    data_path: ../data/Part1 # news article directory
+    data_path: /workspace/Fake-News-Detection-Dataset/data/Part1
     saved_data_path: false
     PARAMETERS:
         max_word_len: 512
